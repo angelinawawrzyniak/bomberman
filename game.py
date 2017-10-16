@@ -61,7 +61,7 @@ class User:
         return False
 
     def make_step(self, board, bricks):
-        chosen_direction = input('w/a/s/d')
+        chosen_direction = input('w/a/s/d/space')
         if chosen_direction == 'a':
             new_x = self.x - self.step
             if not board.is_field_occupied(self.y, new_x) and not self.is_brick_there(bricks, self.y, new_x):
@@ -78,6 +78,8 @@ class User:
             new_y = self.y + self.step
             if not board.is_field_occupied(new_y, self.x) and not self.is_brick_there(bricks, new_y, self.x):
                 self.y += self.step
+        elif chosen_direction == ' ':
+            bombs.append(Bomb(user))
 
 
 class Brick:
@@ -111,11 +113,36 @@ class Brick:
 
 
 class Bomb:
-    pass
+
+    def __init__(self, user):
+        self.y = user.y
+        self.x = user.x
+        self.time = 4
+
+    def draw(self, graphic_buffer,bombs, user):
+        graphic_buffer[self.y][self.x] = '@'
+        for bomb in bombs:
+            if (self.y, self.x) != (user.y, user.x):
+                graphic_buffer[self.y][self.x] = 'B'
+
+    def make_step(self, bombs, dead_list, bricks):
+        if self.time > 0:
+            self.time -= 1
+        if self.time == 0 and self not in dead_list:
+            dead_list.append(self)
+            offsets = [(-1, 0), (1, 0), (0, -1), (0, 1), (-1, -1), (-1, 1), (1, -1), (1, 1),]
+            for brick in bricks:
+                if brick not in dead_list:
+                    for (offset_y, offset_x) in offsets:
+                        if (brick.y, brick.x) == (self.y + offset_y, self.x + offset_x):
+                            dead_list.append(brick)
+
 
 board = Board()
 user = User(1, board)
 bricks = []
+bombs = []
+dead_list =[]
 for _ in range(20):
     bricks.append(Brick(board, user, bricks))
 
@@ -128,17 +155,30 @@ while True:
     for brick in bricks:
         brick.draw(graphic_buffer)
     user.draw(graphic_buffer)
+    for bomb in bombs:
+        bomb.draw(graphic_buffer, bombs, user)
     for row in graphic_buffer:
         print(' '.join(row))
     print('Lives: {}, Points: {}'.format(user.life, user.points))
+    for bomb in bombs:
+        print('Bomb time: {}'.format(bomb.time))
     user.make_step(board, bricks)
+    for bomb in bombs:
+        bomb.make_step(bombs, dead_list, bricks)
+    for element in dead_list:
+        if isinstance(element, Bomb):
+            bombs.remove(element)
+        if isinstance(element, Brick):
+            bricks.remove(element)
+    dead_list = []
+
 
 
 # TODO:
-# Bombs destroy bricks
-# monster - random place, random number
+# bomb decrement number of lives
+# points
+# game over
 # portal ending level
 # level
-# points
-# lives
 # artifacts - bigger range of bomb explosion, add life, more points
+# monster - random place, random number

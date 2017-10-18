@@ -151,7 +151,7 @@ class Bomb:
                             self.add_point(context.user, brick)
                             if context.portal is None:
                                 context.portal = Portal(brick.y, brick.x)
-
+            offsets.append((0, 0))
             for (offset_y, offset_x) in offsets:
                 if (context.user.y, context.user.x) == (self.y + offset_y, self.x + offset_x):
                     context.user.life -= 1
@@ -164,22 +164,26 @@ class Bomb:
 class Context:
 
     def __init__(self):
+        self.game_level = 1
+        self._reset_context()
+
+    def level_up(self):
+        self.game_level += 1
+        self._reset_context()
+
+    def _reset_context(self):
         self.board = Board()
         self.user = User(1, self.board)
         self.bricks = []
         self.portal = None
         self.bombs = []
         self.dead_list =[]
+
         for _ in range(20):
             self.bricks.append(Brick(self.board,self. user, self.bricks))
 
-context = Context()
 
-graphic_buffer = [
-    [' ' for index_x in range(len(context.board.fields[index_y]))] for index_y in range(len(context.board.fields))
-]
-
-while True:
+def draw_scene(context, graphic_buffer):
     context.board.draw(graphic_buffer, context)
     for brick in context.bricks:
         brick.draw(graphic_buffer, context)
@@ -190,10 +194,24 @@ while True:
         context.portal.draw(graphic_buffer, context)
     for row in graphic_buffer:
         print(' '.join(row))
-    print('Lives: {}, Points: {}'.format(context.user.life, context.user.points))
+    print('Level: {}, Lives: {}, Points: {}'.format(context.game_level, context.user.life,
+                                                    context.user.points))
     for bomb in context.bombs:
         print('Bomb time: {}'.format(bomb.time))
+
+context = Context()
+graphic_buffer = [
+    [' ' for index_x in range(len(context.board.fields[index_y]))] for index_y in range(len(context.board.fields))
+]
+
+
+while True:
+    draw_scene(context, graphic_buffer)
     context.user.make_step(context)
+    if context.portal is not None:
+        if (context.user.y, context.user.x) == (context.portal.y, context.portal.x):
+            context.level_up()
+            continue
     for bomb in context.bombs:
         bomb.make_step(context)
     for element in context.dead_list:
@@ -206,8 +224,6 @@ while True:
 
 
 # TODO:
-# portal ending level
-# level
 # game over
 # artifacts - bigger range of bomb explosion, add life, more points
 # monster - random place, random number

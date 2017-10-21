@@ -147,19 +147,15 @@ class Bomb:
             self.time -= 1
         if self.time == 0 and self not in context.dead_list:
             context.dead_list.append(self)
-            offsets = [(-1, 0), (1, 0), (0, -1), (0, 1), (-1, -1), (-1, 1), (1, -1), (1, 1),]
+            offsets = [(-1, 0), (1, 0), (0, -1), (0, 1), ]
             for brick in context.bricks:
                 if brick not in context.dead_list:
                     for (offset_y, offset_x) in offsets:
                         if (brick.y, brick.x) == (self.y + offset_y, self.x + offset_x):
                             context.dead_list.append(brick)
-                            self.add_point(context.user, brick)
-                            if context.portal is None:
-                                if random() <= 1/len(context.bricks):
-                                    context.portal = Portal(brick.y, brick.x)
-                            if context.portal is None:
-                                if random() <= 0.2:
-                                    context.artifacts.append(Life(brick.y, brick.x))
+                            self._add_point(context.user, brick)
+                            self._add_random_artifact(context, brick)
+                            break
 
             offsets.append((0, 0))
             for (offset_y, offset_x) in offsets:
@@ -169,8 +165,23 @@ class Bomb:
                         raise GameOverError('GAME OVER')
                     break
 
-    def add_point(self, user, destroyed_objects):
+    def _add_point(self, user, destroyed_objects):
         user.points += destroyed_objects.REWARD
+
+    def _add_random_artifact(self, context, brick):
+        if context.portal is None:
+            if random() <= 1 / len(context.bricks):
+                context.portal = Portal(brick.y, brick.x)
+                return
+        if random() <= 0.1:
+            context.artifacts.append(Life(brick.y, brick.x))
+            return
+        if random() <= 0.3:
+            context.artifacts.append(Upgrade(brick.y, brick.x))
+            return
+        if random() <= 0.3:
+            context.artifacts.append(Point(brick.y, brick.x))
+            return
 
 
 class Artifact:
@@ -193,9 +204,28 @@ class Life(Artifact):
     SYMBOL = 'L'
 
     def make_step(self, context):
-        if (context.user.y, context.user.x) == (artifact.y, artifact.x):
-            context.dead_list.append(artifact)
+        if (context.user.y, context.user.x) == (self.y, self.x):
+            context.dead_list.append(self)
             context.user.life += 1
+
+
+class Upgrade(Artifact):
+
+    SYMBOL = '^'
+
+    def make_step(self, context):
+        if (context.user.y, context.user.x) == (self.y, self.x):
+            context.dead_list.append(self)
+
+
+class Point(Artifact):
+
+    SYMBOL = '$'
+
+    def make_step(self, context):
+        if (context.user.y, context.user.x) == (self.y, self.x):
+            context.dead_list.append(self)
+            context.user.points += 50
 
 
 class Context:
@@ -246,6 +276,20 @@ def draw_scene(context, graphic_buffer):
         print('Bomb time: {}'.format(bomb.time))
 
 
+def remove_elements(context):
+    for element in context.dead_list:
+        if isinstance(element, Bomb):
+            context.bombs.remove(element)
+        if isinstance(element, Brick):
+            context.bricks.remove(element)
+        if isinstance(element, Life):
+            context.artifacts.remove(element)
+        if isinstance(element, Upgrade):
+            context.artifacts.remove(element)
+        if isinstance(element, Point):
+            context.artifacts.remove(element)
+    context.dead_list = []
+
 context = Context()
 graphic_buffer = [
     [' ' for index_x in range(len(context.board.fields[index_y]))] for index_y in range(len(context.board.fields))
@@ -254,6 +298,9 @@ graphic_buffer = [
 
 while True:
     draw_scene(context, graphic_buffer)
+    if context.user.points != 0:
+        if context.user.points % 200 == 0:
+            context.user.life += 1
     context.user.make_step(context)
     for artifact in context.artifacts:
         artifact.make_step(context)
@@ -268,15 +315,7 @@ while True:
         context.game_over = True
         draw_scene(context, graphic_buffer)
         break
-    for element in context.dead_list:
-        if isinstance(element, Bomb):
-            context.bombs.remove(element)
-        if isinstance(element, Brick):
-            context.bricks.remove(element)
-        if isinstance(element, Life):
-            context.artifacts.remove(element)
-    context.dead_list = []
-
+    remove_elements(context)
 
 
 # TODO:
